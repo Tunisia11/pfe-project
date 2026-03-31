@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Piler Archive Extractor | System Orchestrator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1" rel="stylesheet" />
+  <link rel="stylesheet" href="/gui/assets/css/dashboard.css" />
+</head>
+<body>
+  <div class="app-shell" id="appRoot">
+    <aside class="sidebar">
+      <div class="brand-block">
+        <div class="brand-title">System Orchestrator</div>
+        <div class="brand-version">v2.4.0-mvp</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active">
+          <span class="material-symbols-outlined">inventory_2</span>
+          <span>Project</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="material-symbols-outlined">integration_instructions</span>
+          <span>Integration</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <a href="#" class="nav-item muted">
+          <span class="material-symbols-outlined">description</span>
+          <span>Docs</span>
+        </a>
+        <a href="#" class="nav-item muted">
+          <span class="material-symbols-outlined">help_center</span>
+          <span>Support</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="main-column">
+      <header class="topbar">
+        <div class="pathline">
+          <span>PATH</span>
+          <code>/orchestrator/dashboard</code>
+        </div>
+        <div class="top-actions">
+          <button class="icon-button" type="button" aria-label="notifications">
+            <span class="material-symbols-outlined">notifications</span>
+          </button>
+          <div class="user-pill">
+            <span class="material-symbols-outlined">account_circle</span>
+            <div>
+              <div>Admin Console</div>
+              <small>Local Dev</small>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="canvas">
+        <section class="hero-panel">
+          <div>
+            <h1>Piler Archive Extractor</h1>
+            <p>Advanced API workspace for archived emails, SQL-dump testing, and contact deduplication.</p>
+          </div>
+
+          <div class="hero-actions">
+            <button id="btnHealth" type="button">Check Health</button>
+            <button id="btnRoot" type="button" class="ghost">Ping Root</button>
+            <button id="btnLoad" type="button" class="alt">Refresh Emails</button>
+            <button id="btnLoadAll" type="button" class="warn">Load All Rows</button>
+          </div>
+
+          <div class="status-row">
+            <span class="status-pill" id="apiBadge">API: localhost:8000</span>
+            <span class="status-pill" id="modeBadge">Mode: list</span>
+            <span class="status-pill" id="dataBadge">Data source: auto</span>
+            <span class="status-pill loading-pill" id="loadingLabel">Loading</span>
+          </div>
+        </section>
+
+        <section class="stats-grid">
+          <article class="stat-card stat-accent-tertiary">
+            <small>Rows Loaded</small>
+            <strong id="mLoaded">0</strong>
+            <span>Current working set</span>
+          </article>
+          <article class="stat-card stat-accent-primary">
+            <small>Unique Senders</small>
+            <strong id="mSenders">0</strong>
+            <span>Distinct sender identities</span>
+          </article>
+          <article class="stat-card">
+            <small>Sender Domains</small>
+            <strong id="mDomains">0</strong>
+            <span>Organizations in archive</span>
+          </article>
+          <article class="stat-card">
+            <small>Recipients Volume</small>
+            <strong id="mRecipients">0</strong>
+            <span>Total recipients in loaded rows</span>
+          </article>
+          <article class="stat-card stat-accent-primary">
+            <small>Unique Contacts</small>
+            <strong id="mContacts">0</strong>
+            <span>Cleaned + deduplicated contacts</span>
+          </article>
+        </section>
+
+        <section class="workspace-grid">
+          <div class="left-pane">
+            <article class="panel">
+              <header class="panel-head">
+                <div>
+                  <h2>Query Controls</h2>
+                  <p>Pagination, server search, local filtering</p>
+                </div>
+              </header>
+
+              <div class="panel-body">
+                <div class="controls-grid">
+                  <label class="field">
+                    <span>Limit</span>
+                    <input id="limit" type="number" min="1" max="100" value="100" />
+                  </label>
+
+                  <label class="field">
+                    <span>Offset</span>
+                    <input id="offset" type="number" min="0" value="0" />
+                  </label>
+
+                  <label class="field span-2">
+                    <span>Server Search (/emails/search?q=...)</span>
+                    <input id="serverSearch" type="text" placeholder="subject/from/to" />
+                  </label>
+
+                  <label class="field span-2">
+                    <span>Local Filter (loaded table only)</span>
+                    <input id="localFilter" type="text" placeholder="filter loaded rows" />
+                  </label>
+                </div>
+
+                <div class="actions-row">
+                  <button id="btnSearch" type="button" class="alt">Run Search</button>
+                  <button id="btnClear" type="button" class="warn">Reset</button>
+                  <button id="btnLoadAllInline" type="button">Load All Rows</button>
+                  <button id="btnPrev" type="button" class="ghost">Prev</button>
+                  <button id="btnNext" type="button" class="ghost">Next</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <header class="panel-head panel-head-tight">
+                <div>
+                  <h2>Email Archive</h2>
+                  <p id="tableMeta">No data loaded</p>
+                </div>
+                <span class="status-pill" id="selectionChip">Selected: none</span>
+              </header>
+
+              <div class="panel-body no-top-padding">
+                <div class="table-wrap">
+                  <table id="emailsTable">
+                    <thead>
+                      <tr>
+                        <th><button type="button" data-sort="id">ID <span class="sort-icon" id="s-id">↕</span></button></th>
+                        <th><button type="button" data-sort="date">Date <span class="sort-icon" id="s-date">↕</span></button></th>
+                        <th><button type="button" data-sort="from">From <span class="sort-icon" id="s-from">↕</span></button></th>
+                        <th><button type="button" data-sort="subject">Subject <span class="sort-icon" id="s-subject">↕</span></button></th>
+                        <th><button type="button" data-sort="toCount">Recipients <span class="sort-icon" id="s-toCount">↕</span></button></th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="emailsBody"></tbody>
+                  </table>
+                </div>
+
+                <div class="pager-row">
+                  <div id="pagerInfo">Page offset 0</div>
+                  <div class="pager-actions">
+                    <button id="btnPrevBottom" type="button" class="ghost">Prev</button>
+                    <button id="btnNextBottom" type="button" class="ghost">Next</button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <aside class="right-pane">
+            <article class="panel">
+              <header class="panel-head">
+                <div>
+                  <h2>Inspector</h2>
+                  <p id="inspectorMeta">Choose an email row</p>
+                </div>
+              </header>
+              <div class="panel-body">
+                <div id="summaryView" class="detail-summary">
+                  <div class="empty">No email selected yet.</div>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <header class="panel-head">
+                <div>
+                  <h2>Detail Workspace</h2>
+                  <p>Summary, JSON, attachments, contacts, trace</p>
+                </div>
+              </header>
+              <div class="panel-body">
+                <div class="tabs">
+                  <button type="button" class="tab active" data-tab="summary">Summary</button>
+                  <button type="button" class="tab" data-tab="json">JSON</button>
+                  <button type="button" class="tab" data-tab="attachments">Attachments</button>
+                  <button type="button" class="tab" data-tab="contacts">Contacts</button>
+                  <button type="button" class="tab" data-tab="trace">Trace</button>
+                </div>
+                <div id="tabPanel" class="tab-panel"></div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <header class="panel-head">
+                <div>
+                  <h2>Recent Requests</h2>
+                  <p>Real-time API call telemetry</p>
+                </div>
+              </header>
+              <div class="panel-body">
+                <div id="traceInline" class="trace-inline empty">No requests yet.</div>
+              </div>
+            </article>
+          </aside>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+  <script src="/gui/assets/js/dashboard.js" defer></script>
+</body>
+</html>

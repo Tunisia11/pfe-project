@@ -1,0 +1,17 @@
+{
+    "name": "pfe/piler-archive-extractor",
+    "description": "Piler archive extractor API and contact processing pipeline (PFE MVP)",
+    "type": "project",
+    "require": {
+        "php": "^8.1",
+        "bcosca/fatfree": "^3.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "scripts": {
+        "serve": "php -S localhost:8000 -t public"
+    }
+}
