@@ -10,15 +10,20 @@ use PDO;
 
 final class EmailRepository
 {
+    private const MAX_PAGE_LIMIT = 1000;
+
     public function __construct(
         private readonly ?PDO $pdo = null,
         private readonly ?PilerDumpDataSource $dumpDataSource = null
     ) {
     }
 
-    public function findAll(int $limit = 10, int $offset = 0): array
+    /**
+     * @param array{date_from?: string|null, date_to?: string|null} $filters
+     */
+    public function findAll(int $limit = 10, int $offset = 0, array $filters = []): array
     {
-        $limit = max(1, min($limit, 100));
+        $limit = max(1, min($limit, self::MAX_PAGE_LIMIT));
         $offset = max(0, $offset);
 
         if ($this->pdo !== null) {
@@ -26,10 +31,12 @@ final class EmailRepository
         }
 
         if ($this->dumpDataSource !== null) {
-            return array_slice($this->dumpDataSource->getEmails(), $offset, $limit);
+            $emails = $this->filterByDateRange($this->dumpDataSource->getEmails(), $filters);
+
+            return array_slice($emails, $offset, $limit);
         }
 
-        return array_slice($this->mockEmails(), $offset, $limit);
+        return array_slice($this->filterByDateRange($this->mockEmails(), $filters), $offset, $limit);
     }
 
     public function findById(int $id): ?array
@@ -57,7 +64,10 @@ final class EmailRepository
         return null;
     }
 
-    public function search(string $query): array
+    /**
+     * @param array{date_from?: string|null, date_to?: string|null} $filters
+     */
+    public function search(string $query, array $filters = []): array
     {
         if ($this->pdo !== null) {
             return $this->searchFromPiler($query);
@@ -69,7 +79,7 @@ final class EmailRepository
 
         $needle = mb_strtolower($query);
 
-        return array_values(array_filter(
+        $matches = array_values(array_filter(
             $emails,
             static function (array $email) use ($needle): bool {
                 $from = mb_strtolower($email['from']);
@@ -81,6 +91,8 @@ final class EmailRepository
                     || str_contains($to, $needle);
             }
         ));
+
+        return $this->filterByDateRange($matches, $filters);
     }
 
     public function getAllForSync(): array
@@ -94,6 +106,35 @@ final class EmailRepository
         }
 
         return $this->mockEmails();
+    }
+
+    /**
+     * @param array{date_from?: string|null, date_to?: string|null} $filters
+     */
+    public function findForExtraction(int $limit = 1000, int $offset = 0, array $filters = [], ?string $query = null): array
+    {
+        $limit = max(1, min($limit, 10000));
+        $offset = max(0, $offset);
+
+        if ($this->pdo !== null) {
+            $emails = $query !== null && trim($query) !== ''
+                ? $this->searchFromPiler($query)
+                : $this->findAllFromPiler($limit, $offset);
+
+            return array_slice($this->filterByDateRange($emails, $filters), 0, $limit);
+        }
+
+        $emails = $this->dumpDataSource !== null
+            ? $this->dumpDataSource->getEmails()
+            : $this->mockEmails();
+
+        if ($query !== null && trim($query) !== '') {
+            $emails = $this->filterByQuery($emails, $query);
+        }
+
+        $emails = $this->filterByDateRange($emails, $filters);
+
+        return array_slice($emails, $offset, $limit);
     }
 
     private function mockEmails(): array
@@ -183,5 +224,78 @@ final class EmailRepository
         // TODO: Build PDO LIKE/full-text query depending on real DB capabilities.
 
         return [];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $emails
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function filterByQuery(array $emails, string $query): array
+    {
+        $needle = mb_strtolower($query);
+
+        return array_values(array_filter(
+            $emails,
+            static function (array $email) use ($needle): bool {
+                $from = mb_strtolower((string) ($email['from'] ?? ''));
+                $subject = mb_strtolower((string) ($email['subject'] ?? ''));
+                $to = mb_strtolower(implode(' ', is_array($email['to'] ?? null) ? $email['to'] : []));
+                $cc = mb_strtolower(implode(' ', is_array($email['cc'] ?? null) ? $email['cc'] : []));
+
+                return str_contains($subject, $needle)
+                    || str_contains($from, $needle)
+                    || str_contains($to, $needle)
+                    || str_contains($cc, $needle);
+            }
+        ));
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $emails
+     * @param array{date_from?: string|null, date_to?: string|null} $filters
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function filterByDateRange(array $emails, array $filters): array
+    {
+        $from = $this->dateBoundary($filters['date_from'] ?? null, false);
+        $to = $this->dateBoundary($filters['date_to'] ?? null, true);
+
+        if ($from === null && $to === null) {
+            return $emails;
+        }
+
+        return array_values(array_filter(
+            $emails,
+            static function (array $email) use ($from, $to): bool {
+                $timestamp = strtotime((string) ($email['date'] ?? ''));
+                if ($timestamp === false) {
+                    return false;
+                }
+
+                if ($from !== null && $timestamp < $from) {
+                    return false;
+                }
+
+                if ($to !== null && $timestamp > $to) {
+                    return false;
+                }
+
+                return true;
+            }
+        ));
+    }
+
+    private function dateBoundary(?string $value, bool $endOfDay): ?int
+    {
+        $date = trim((string) $value);
+        if ($date === '') {
+            return null;
+        }
+
+        $time = strtotime($date . ($endOfDay ? ' 23:59:59' : ' 00:00:00'));
+
+        return $time === false ? null : $time;
     }
 }

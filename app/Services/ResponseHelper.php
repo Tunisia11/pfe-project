@@ -33,6 +33,7 @@ final class ResponseHelper
     public static function json(Base $f3, int $statusCode, array $payload): void
     {
         http_response_code($statusCode);
+        header('Content-Type: application/json; charset=utf-8');
         $f3->set('HEADERS.Content-Type', 'application/json; charset=utf-8');
 
         $json = json_encode(

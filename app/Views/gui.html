@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Piler Archive Extractor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/gui/assets/css/dashboard.css" />
+</head>
+<body>
+  <div class="app-shell" id="appRoot">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">P</div>
+        <div>
+          <div class="brand-title">Piler Archive Extractor</div>
+          <div class="brand-subtitle">Contact preparation</div>
+        </div>
+      </div>
+
+      <nav class="nav-list" aria-label="Workspace sections">
+        <button class="nav-item active" type="button" data-view="overview">
+          <span class="material-symbols-outlined" aria-hidden="true">dashboard</span>
+          <span>Overview</span>
+        </button>
+        <button class="nav-item" type="button" data-view="emails">
+          <span class="material-symbols-outlined" aria-hidden="true">mail</span>
+          <span>Emails</span>
+        </button>
+        <button class="nav-item" type="button" data-view="contacts">
+          <span class="material-symbols-outlined" aria-hidden="true">group</span>
+          <span>Contacts</span>
+        </button>
+        <button class="nav-item" type="button" data-view="sync">
+          <span class="material-symbols-outlined" aria-hidden="true">sync_alt</span>
+          <span>Sync</span>
+        </button>
+        <button class="nav-item" type="button" data-view="settings">
+          <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-status">
+        <div class="status-label">Data source</div>
+        <div class="source-pill" id="sidebarDataSource">Detecting</div>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="page-heading">
+          <h1 id="pageTitle">Overview</h1>
+          <p id="pageSubtitle">Archive email intelligence and contact preparation workspace.</p>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="status-pill" id="btnHealth" type="button">
+            <span class="status-dot neutral" id="healthDot" aria-hidden="true"></span>
+            <span id="apiBadge">Checking API</span>
+          </button>
+          <button class="button ghost" id="btnTracePanel" type="button">
+            <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+            Request log
+          </button>
+          <button class="button primary" id="topPrimaryAction" type="button">Load latest emails</button>
+          <details class="admin-menu">
+            <summary id="adminIdentity">Admin</summary>
+            <div class="admin-popover">
+              <span id="adminEmail">Signed in</span>
+              <button class="button ghost" id="btnLogout" type="button">Logout</button>
+            </div>
+          </details>
+        </div>
+      </header>
+
+      <main class="content" id="mainContent">
+        <section class="view active" id="view-overview" data-view-panel="overview" aria-labelledby="overviewTitle">
+          <article class="hero-card">
+            <div class="hero-copy">
+              <p class="eyebrow">Piler archive workspace</p>
+              <h2 id="overviewTitle">Piler Archive Extractor</h2>
+              <p>Explore archived emails, extract clean contact candidates, and prepare them for Listmonk synchronization.</p>
+              <div class="hero-actions">
+                <button class="button primary" id="btnLoadLatest" type="button">Load latest emails</button>
+                <button class="button secondary" id="btnExtractContacts" type="button">Extract contacts</button>
+                <button class="button ghost" id="btnOpenEmails" type="button">Open email archive</button>
+              </div>
+            </div>
+            <div class="status-cluster" aria-label="Workspace status">
+              <span class="info-pill" id="overviewHealth">API: checking</span>
+              <span class="info-pill" id="dataBadge">Data source: detecting</span>
+              <span class="info-pill">Mode: local development</span>
+            </div>
+          </article>
+
+          <section class="metrics-grid" aria-label="Archive metrics">
+            <article class="metric-card">
+              <span>Emails loaded</span>
+              <strong id="mLoaded">0</strong>
+              <small>Current working set</small>
+            </article>
+            <article class="metric-card">
+              <span>Unique senders</span>
+              <strong id="mSenders">0</strong>
+              <small>Distinct sender identities</small>
+            </article>
+            <article class="metric-card">
+              <span>Sender domains</span>
+              <strong id="mDomains">0</strong>
+              <small>Organizations observed</small>
+            </article>
+            <article class="metric-card">
+              <span>Recipient volume</span>
+              <strong id="mRecipients">0</strong>
+              <small>Recipients in loaded emails</small>
+            </article>
+            <article class="metric-card accent">
+              <span>Unique contacts</span>
+              <strong id="mContacts">0</strong>
+              <small>Cleaned and deduplicated</small>
+            </article>
+          </section>
+
+          <section class="overview-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2>Recent email samples</h2>
+                  <p id="overviewSamplesMeta">Load emails to preview archive data.</p>
+                </div>
+                <button class="button subtle" id="btnOverviewRefresh" type="button">Refresh</button>
+              </div>
+              <div class="sample-list" id="overviewSamples">
+                <div class="empty-state">
+                  <span class="material-symbols-outlined" aria-hidden="true">inbox</span>
+                  <h3>No emails loaded yet</h3>
+                  <p>Load the latest records to inspect archive metadata.</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2>Pipeline summary</h2>
+                  <p>How raw archive metadata becomes a contact list.</p>
+                </div>
+              </div>
+              <div class="pipeline-steps" id="pipelineSteps"></div>
+            </article>
+          </section>
+        </section>
+
+        <section class="view" id="view-emails" data-view-panel="emails" aria-labelledby="emailsTitle">
+          <div class="section-head">
+            <div>
+              <h2 id="emailsTitle">Email archive</h2>
+            <p>Search the API/cache, page through records, and inspect individual emails. Use limit and offset to move through the archive without freezing the browser.</p>
+          </div>
+            <button class="button secondary" id="btnLoadFullArchive" type="button">Load max page</button>
+          </div>
+
+          <article class="panel toolbar-panel">
+            <form class="query-toolbar" id="emailSearchForm">
+              <label class="field search-field">
+                <span>Server search</span>
+                <input id="serverSearch" type="search" autocomplete="off" placeholder="Search subject, sender, recipient..." />
+              </label>
+              <label class="field compact-field">
+                <span>Limit</span>
+                <input id="limit" type="number" min="1" max="1000" value="100" />
+              </label>
+              <label class="field compact-field">
+                <span>Offset</span>
+                <input id="offset" type="number" min="0" value="0" />
+              </label>
+              <div class="toolbar-buttons">
+                <button class="button primary" id="btnSearch" type="submit">Search API</button>
+                <button class="button ghost" id="btnLoad" type="button">Refresh</button>
+              </div>
+            </form>
+
+            <div class="date-filter-grid" aria-label="Archive date range filter">
+              <label class="field compact-field">
+                <span>Date from</span>
+                <input id="dateFrom" type="date" />
+              </label>
+              <label class="field compact-field">
+                <span>Date to</span>
+                <input id="dateTo" type="date" />
+              </label>
+              <div class="date-filter-copy">
+                Load emails from a specific archive date window. Leave both dates empty to browse all loaded records.
+              </div>
+              <button class="button secondary" id="btnApplyDateRange" type="button">Apply date range</button>
+            </div>
+
+            <details class="advanced-filters">
+              <summary>Advanced filters and local tools</summary>
+              <div class="advanced-grid">
+                <label class="field">
+                  <span>Local filter</span>
+                  <input id="localFilter" type="search" autocomplete="off" placeholder="Filter only loaded rows..." />
+                </label>
+                <div class="filter-help">
+                  <strong>Server search</strong> queries the API/database/cache. <strong>Local filter</strong> only narrows the rows already loaded in this browser.
+                </div>
+                <div class="advanced-actions">
+                  <button class="button ghost" id="btnClear" type="button">Reset filters</button>
+                  <button class="button secondary" id="btnLoadAllInline" type="button">Load max page</button>
+                </div>
+              </div>
+            </details>
+          </article>
+
+          <article class="panel table-panel">
+            <div class="panel-header table-header">
+              <div>
+                <h2>Email records</h2>
+                <p id="tableMeta">No data loaded.</p>
+              </div>
+              <span class="selection-pill" id="selectionChip">No row selected</span>
+            </div>
+
+            <div class="table-wrap" id="emailTableWrap">
+              <table id="emailsTable">
+                <thead>
+                  <tr>
+                    <th><button type="button" data-sort="date">Date <span class="sort-icon" id="s-date">↓</span></button></th>
+                    <th><button type="button" data-sort="from">Sender <span class="sort-icon" id="s-from">↕</span></button></th>
+                    <th><button type="button" data-sort="subject">Subject <span class="sort-icon" id="s-subject">↕</span></button></th>
+                    <th><button type="button" data-sort="toCount">Recipients <span class="sort-icon" id="s-toCount">↕</span></button></th>
+                    <th>Attachments</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="emailsBody"></tbody>
+              </table>
+            </div>
+
+            <div class="pagination-bar">
+              <div id="pagerInfo">Limit 25 | Offset 0</div>
+              <div class="pagination-actions">
+                <button class="button ghost" id="btnPrev" type="button">Previous</button>
+                <button class="button ghost" id="btnNext" type="button">Next</button>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="view" id="view-contacts" data-view-panel="contacts" aria-labelledby="contactsTitle">
+          <div class="section-head">
+            <div>
+              <h2 id="contactsTitle">Contact preparation</h2>
+              <p>Review cleaned, deduplicated contact candidates extracted from loaded emails.</p>
+            </div>
+            <div class="section-actions">
+              <button class="button secondary" id="btnCopyAllContacts" type="button">Copy all contacts</button>
+              <button class="button primary" id="btnExportCsv" type="button">Export CSV</button>
+            </div>
+          </div>
+
+          <section class="metrics-grid contact-metrics" aria-label="Contact extraction metrics">
+            <article class="metric-card">
+              <span>Extracted addresses</span>
+              <strong id="cExtracted">0</strong>
+              <small>Raw addresses found</small>
+            </article>
+            <article class="metric-card accent">
+              <span>Valid contacts</span>
+              <strong id="cValid">0</strong>
+              <small>Ready candidates</small>
+            </article>
+            <article class="metric-card">
+              <span>Duplicates removed</span>
+              <strong id="cDuplicates">0</strong>
+              <small>Repeated addresses</small>
+            </article>
+            <article class="metric-card">
+              <span>Ignored</span>
+              <strong id="cIgnored">0</strong>
+              <small>Invalid or system emails</small>
+            </article>
+            <article class="metric-card">
+              <span>Unique contacts</span>
+              <strong id="cUnique">0</strong>
+              <small>Current contact table</small>
+            </article>
+          </section>
+
+          <article class="panel ai-insights-panel">
+            <div class="panel-header ai-panel-header">
+              <div>
+                <h2>AI Insights</h2>
+                <p id="aiNotice">Checking AI contact intelligence status...</p>
+              </div>
+              <button class="button secondary" id="btnRunAiInsights" type="button">Run AI insights</button>
+            </div>
+            <div class="ai-insights-body">
+              <div class="ai-stat-grid" aria-label="AI contact intelligence metrics">
+                <div class="ai-stat">
+                  <span>Analyzed</span>
+                  <strong id="aiAnalyzed">0</strong>
+                </div>
+                <div class="ai-stat">
+                  <span>High value</span>
+                  <strong id="aiHighValue">0</strong>
+                </div>
+                <div class="ai-stat">
+                  <span>Low confidence</span>
+                  <strong id="aiLowConfidence">0</strong>
+                </div>
+              </div>
+              <div class="ai-breakdown-grid">
+                <div>
+                  <h3>Category breakdown</h3>
+                  <div class="breakdown-list" id="aiCategoryBreakdown">
+                    <div class="empty-mini">No AI categories yet.</div>
+                  </div>
+                </div>
+                <div>
+                  <h3>Segment breakdown</h3>
+                  <div class="breakdown-list" id="aiSegmentBreakdown">
+                    <div class="empty-mini">No AI segments yet.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel toolbar-panel">
+            <div class="query-toolbar">
+              <label class="field search-field">
+                <span>Contact search</span>
+                <input id="contactSearch" type="search" autocomplete="off" placeholder="Search email or domain..." />
+              </label>
+              <label class="field compact-field">
+                <span>Status</span>
+                <select id="contactStatusFilter">
+                  <option value="all">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="ignored">Ignored</option>
+                  <option value="blocked">Blocked</option>
+                </select>
+              </label>
+              <div class="toolbar-buttons">
+                <button class="button primary" id="btnReExtractContacts" type="button">Extract contacts</button>
+                <button class="button ghost disabled" id="btnPrepareListmonk" type="button" disabled title="Listmonk sync not implemented yet">Prepare Listmonk payload</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel table-panel">
+            <div class="panel-header table-header">
+              <div>
+                <h2>Clean contacts</h2>
+                <p id="contactsMeta">Load emails and extract contacts to populate this table.</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="contactsTable">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Domain</th>
+                    <th>Category</th>
+                    <th>Sources</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="contactsBody"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="view" id="view-sync" data-view-panel="sync" aria-labelledby="syncTitle">
+          <article class="panel future-panel">
+            <div class="future-icon" aria-hidden="true">
+              <span class="material-symbols-outlined">hub</span>
+            </div>
+            <div>
+              <p class="eyebrow">Future integration</p>
+              <h2 id="syncTitle">Listmonk sync is not connected yet.</h2>
+              <p>The extractor can prepare clean contacts, but the production Listmonk API push still needs configuration and implementation.</p>
+            </div>
+            <ul class="check-list">
+              <li>Listmonk base URL</li>
+              <li>API credentials</li>
+              <li>List mapping</li>
+              <li>Batch sync</li>
+              <li>Retry and failure logging</li>
+            </ul>
+            <button class="button primary disabled" type="button" disabled title="Listmonk sync is not implemented yet">Connect Listmonk</button>
+          </article>
+        </section>
+
+        <section class="view" id="view-settings" data-view-panel="settings" aria-labelledby="settingsTitle">
+          <div class="section-head">
+            <div>
+              <h2 id="settingsTitle">Settings</h2>
+              <p>Runtime information visible from the browser and current API responses.</p>
+            </div>
+          </div>
+
+          <section class="settings-grid">
+            <article class="panel setting-card">
+              <span>API base URL</span>
+              <strong id="settingApiUrl">-</strong>
+              <p>Current browser origin used for API requests.</p>
+            </article>
+            <article class="panel setting-card">
+              <span>Data source mode</span>
+              <strong id="settingDataSource">Detecting</strong>
+              <p>Inferred from loaded API records because backend config is not exposed.</p>
+            </article>
+            <article class="panel setting-card">
+              <span>SQL dump/cache</span>
+              <strong id="settingCacheStatus">Not exposed</strong>
+              <p>The dashboard can infer cache-like data, but cannot read server files directly.</p>
+            </article>
+            <article class="panel setting-card">
+              <span>Environment</span>
+              <strong>Local development</strong>
+              <p>Served by the PHP application at the current host.</p>
+            </article>
+            <article class="panel setting-card">
+              <span>Max email limit</span>
+              <strong id="settingMaxLimit">1,000 per request</strong>
+              <p>The API controller clamps list requests to 1,000 rows to keep the browser responsive.</p>
+            </article>
+            <article class="panel setting-card">
+              <span>AI contact intelligence</span>
+              <strong id="settingAiMode">Checking</strong>
+              <p id="settingAiNotice">The app can run without AI credentials and uses rules when AI is disabled.</p>
+            </article>
+            <article class="panel setting-card">
+              <span>Debug mode</span>
+              <strong>Not exposed by API</strong>
+              <p>No public settings endpoint currently returns backend debug state.</p>
+            </article>
+            <article class="panel setting-card setting-actions-card">
+              <span>API diagnostics</span>
+              <strong>Manual checks</strong>
+              <p>Use these only when you need to verify connectivity or inspect request logs.</p>
+              <div class="setting-buttons">
+                <button class="button ghost" id="btnSettingsHealth" type="button">Check health</button>
+                <button class="button ghost" id="btnRoot" type="button">Ping root</button>
+              </div>
+            </article>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="detail-drawer" id="detailDrawer" aria-hidden="true" aria-label="Email detail drawer">
+    <div class="drawer-header">
+      <div>
+        <span class="drawer-kicker" id="drawerKicker">Email detail</span>
+        <h2 id="drawerTitle">No email selected</h2>
+      </div>
+      <button class="icon-button" id="btnCloseDrawer" type="button" aria-label="Close details">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </div>
+
+    <div class="drawer-tabs" role="tablist" aria-label="Email detail tabs">
+      <button class="drawer-tab active" type="button" data-drawer-tab="summary">Summary</button>
+      <button class="drawer-tab" type="button" data-drawer-tab="attachments">Attachments</button>
+      <button class="drawer-tab" type="button" data-drawer-tab="contacts">Contacts</button>
+      <button class="drawer-tab" type="button" data-drawer-tab="json">JSON</button>
+      <button class="drawer-tab" type="button" data-drawer-tab="trace">Trace</button>
+    </div>
+
+    <div class="drawer-body" id="drawerBody">
+      <div class="empty-state">
+        <span class="material-symbols-outlined" aria-hidden="true">mail</span>
+        <h3>Select an email</h3>
+        <p>Choose a row in the archive to inspect its metadata.</p>
+      </div>
+    </div>
+  </aside>
+
+  <aside class="trace-panel" id="tracePanel" aria-hidden="true" aria-label="Recent request log">
+    <div class="trace-header">
+      <div>
+        <h2>Recent requests</h2>
+        <p>API calls made by this dashboard.</p>
+      </div>
+      <button class="icon-button" id="btnCloseTrace" type="button" aria-label="Close request log">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </div>
+    <div class="trace-list" id="traceList">
+      <div class="empty-state compact">
+        <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+        <p>No requests yet.</p>
+      </div>
+    </div>
+  </aside>
+
+  <div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="/gui/assets/js/dashboard.js" defer></script>
+</body>
+</html>

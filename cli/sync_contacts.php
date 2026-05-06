@@ -6,11 +6,13 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use App\Repositories\AttachmentRepository;
 use App\Repositories\EmailRepository;
+use App\Services\AiContactIntelligenceService;
 use App\Services\ClassificationService;
 use App\Services\ContactCleaningService;
 use App\Services\ContactExtractionService;
 use App\Services\EmailService;
 use App\Services\ListmonkSyncService;
+use App\Services\MockAiContactProvider;
 use App\Services\PilerDumpDataSource;
 use App\Services\SyncHistoryService;
 
@@ -50,18 +52,30 @@ if ($useSqlDump && is_file($dumpPath)) {
 
 $emailRepository = new EmailRepository($f3->get('db.pdo'), $dumpDataSource);
 $attachmentRepository = new AttachmentRepository($f3->get('db.pdo'), $dumpDataSource);
+$classifier = new ClassificationService();
+$aiConfig = $f3->get('app')['ai'] ?? [];
+$aiContactIntelligenceService = new AiContactIntelligenceService(
+    $classifier,
+    new MockAiContactProvider(),
+    (bool) ($aiConfig['enabled'] ?? false),
+    (string) ($aiConfig['provider'] ?? 'mock'),
+    (int) ($aiConfig['batch_size'] ?? 50)
+);
 
 $emailService = new EmailService(
     $emailRepository,
     $attachmentRepository,
     new ContactExtractionService(),
     new ContactCleaningService(),
-    new ClassificationService(),
+    $classifier,
+    $aiContactIntelligenceService,
     new ListmonkSyncService()
 );
 
 $pipelineResult = $emailService->runContactPipeline();
 $stats = $pipelineResult['stats'];
+$aiSummary = $pipelineResult['ai_summary'];
+$aiStatus = $pipelineResult['ai_status'];
 
 printf("\n=== Contact Sync Pipeline Summary ===\n");
 printf("Total emails processed: %d\n", $pipelineResult['emails_processed']);
@@ -71,10 +85,33 @@ printf("Duplicates removed: %d\n", $stats['duplicates_removed']);
 printf("Ignored invalid/system addresses: %d\n", $stats['ignored_invalid_or_system_addresses']);
 printf("Listmonk payload preview count: %d\n", $pipelineResult['listmonk_payload_preview_count']);
 
+printf("\n=== AI Contact Intelligence Summary ===\n");
+printf("Status: %s\n", $aiStatus['notice']);
+printf("Provider: %s\n", $aiStatus['provider']);
+printf("Batch size: %d\n", $aiStatus['batch_size']);
+printf("Contacts analyzed: %d\n", $aiSummary['contacts_analyzed']);
+printf("High-value contacts: %d\n", $aiSummary['high_value_contacts']);
+printf("Low-confidence contacts: %d\n", $aiSummary['low_confidence_contacts']);
+printf("Categories: %s\n", json_encode($aiSummary['categories_count'], JSON_UNESCAPED_SLASHES));
+printf("Segments: %s\n", json_encode($aiSummary['segments_count'], JSON_UNESCAPED_SLASHES));
+
 if ($pipelineResult['valid_contacts'] !== []) {
     printf("\nValid contacts sample:\n");
     foreach (array_slice($pipelineResult['valid_contacts'], 0, 10) as $contact) {
         printf("- %s\n", $contact);
+    }
+}
+
+if ($pipelineResult['ai_contacts'] !== []) {
+    printf("\nAI-enriched contacts sample:\n");
+    foreach (array_slice($pipelineResult['ai_contacts'], 0, 5) as $contact) {
+        printf(
+            "- %s | %s | score %d | confidence %.2f\n",
+            $contact['email'],
+            $contact['segment'],
+            $contact['lead_score'],
+            $contact['confidence']
+        );
     }
 }
 
@@ -87,4 +124,6 @@ $syncHistoryService->recordRun([
     'valid_contacts' => $stats['valid_contacts'],
     'duplicates_removed' => $stats['duplicates_removed'],
     'ignored_invalid_or_system_addresses' => $stats['ignored_invalid_or_system_addresses'],
+    'ai_status' => $aiStatus,
+    'ai_summary' => $aiSummary,
 ]);

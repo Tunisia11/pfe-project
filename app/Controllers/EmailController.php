@@ -10,16 +10,19 @@ use Base;
 
 final class EmailController
 {
+    private const MAX_PAGE_LIMIT = 1000;
+
     public function __construct(private readonly EmailService $emailService)
     {
     }
 
     public function index(Base $f3): void
     {
-        $limit = $this->sanitizeInteger($f3->get('GET.limit'), 10, 1, 100);
+        $limit = $this->sanitizeInteger($f3->get('GET.limit'), 10, 1, self::MAX_PAGE_LIMIT);
         $offset = $this->sanitizeInteger($f3->get('GET.offset'), 0, 0, 5000000);
+        $filters = $this->dateFilters($f3);
 
-        $emails = $this->emailService->getEmails($limit, $offset);
+        $emails = $this->emailService->getEmails($limit, $offset, $filters);
 
         ResponseHelper::success($f3, [
             'data' => $emails,
@@ -28,6 +31,7 @@ final class EmailController
                 'offset' => $offset,
                 'count' => count($emails),
             ],
+            'filters' => $filters,
         ]);
     }
 
@@ -58,11 +62,13 @@ final class EmailController
             return;
         }
 
-        $results = $this->emailService->searchEmails($query);
+        $filters = $this->dateFilters($f3);
+        $results = $this->emailService->searchEmails($query, $filters);
 
         ResponseHelper::success($f3, [
             'query' => $query,
             'count' => count($results),
+            'filters' => $filters,
             'data' => $results,
         ]);
     }
@@ -79,5 +85,31 @@ final class EmailController
         }
 
         return max($min, min((int) $intValue, $max));
+    }
+
+    /**
+     * @return array{date_from: string|null, date_to: string|null}
+     */
+    private function dateFilters(Base $f3): array
+    {
+        return [
+            'date_from' => $this->sanitizeDate($f3->get('GET.date_from')),
+            'date_to' => $this->sanitizeDate($f3->get('GET.date_to')),
+        ];
+    }
+
+    private function sanitizeDate(mixed $value): ?string
+    {
+        $date = trim((string) $value);
+        if ($date === '') {
+            return null;
+        }
+
+        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+        if ($parsed === false || $parsed->format('Y-m-d') !== $date) {
+            return null;
+        }
+
+        return $date;
     }
 }

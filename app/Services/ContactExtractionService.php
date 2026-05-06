@@ -32,6 +32,34 @@ final class ContactExtractionService
         return $addresses;
     }
 
+    public function extractSourcesFromEmails(array $emails): array
+    {
+        $sources = [];
+
+        foreach ($emails as $email) {
+            $archiveId = (int) ($email['id'] ?? 0);
+            if ($archiveId <= 0) {
+                continue;
+            }
+
+            foreach (['from', 'to', 'cc'] as $field) {
+                if (!array_key_exists($field, $email)) {
+                    continue;
+                }
+
+                foreach ($this->extractAddressesFromField($email[$field]) as $address) {
+                    $sources[] = [
+                        'email' => mb_strtolower(trim((string) $address)),
+                        'email_archive_id' => $archiveId,
+                        'source_field' => $field,
+                    ];
+                }
+            }
+        }
+
+        return $sources;
+    }
+
     private function extractAddressesFromField(mixed $fieldValue): array
     {
         if (is_array($fieldValue)) {

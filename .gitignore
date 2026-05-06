@@ -3,6 +3,11 @@
 /logs/*.log
 /storage/*
 !/storage/.gitkeep
+!/storage/database/
+!/storage/database/.gitkeep
+!/storage/migrations/
+!/storage/migrations/*.sql
+/storage/database/*.sqlite
 /storage/cache/*.json
 /storage/logs/*.log
 !/storage/cache/
